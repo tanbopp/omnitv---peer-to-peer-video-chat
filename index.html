@@ -299,13 +299,14 @@
 
     <script>
         // ─── State ────────────────────────────────────────────────────────────────────
-        let peer, myId, localStream, screenStream, dataConn;
+        let peer, myId, localStream, screenStream;
         let currentCalls = {}; // peerId -> call object
         let connectedPeers = {}; // peerId -> { stream, dataConn }
         let isMicOn = true,
             isCamOn = true,
             isScrSharing = false;
         let roomId = null;
+        let isHost = false;
         let chatOpen = false,
             unread = 0;
         let maxParticipants = 50;
@@ -353,7 +354,8 @@
             document.getElementById('participantCountHeader').textContent = '1/50';
             btn.textContent = '✅ Room Dibuat!';
 
-            // Initialize PeerJS
+            // Host room memakai roomId sebagai peer id agar peserta lain bisa menemukan host.
+            isHost = true;
             initPeer(roomId);
 
             // Show app after a short delay
@@ -421,6 +423,7 @@
 
         function setupAfterMedia(targetRoomId) {
             roomId = targetRoomId;
+            isHost = false;
             initPeer(roomId);
 
             document.getElementById('createRoomModal').style.display = 'none';
@@ -495,6 +498,9 @@
             document.getElementById('scrBtn').classList.remove('active-scr');
             document.getElementById('scrBtn').textContent = '🖥️ Share Screen';
             roomId = null;
+            myId = null;
+            isHost = false;
+            setSt('Menghubungkan...', false);
 
             if (peer) {
                 peer.destroy();
@@ -505,7 +511,7 @@
 
         // ─── PeerJS ───────────────────────────────────────────────────────────────────
         function initPeer(roomId) {
-            const peerId = roomId + '--' + Math.random().toString(36).substr(2, 6);
+            const peerId = isHost ? roomId : roomId + '--' + Math.random().toString(36).substr(2, 6);
             peer = new Peer(peerId, {
                 host: '0.peerjs.com',
                 port: 443,
@@ -524,11 +530,12 @@
             peer.on('open', pid => {
                 myId = pid;
                 document.getElementById('roomIdTxt').textContent = roomId.replace('room-', '').substring(0, 8);
-                setSt('Online · Room aktif', true);
+                setSt(isHost ? 'Online · Room aktif' : 'Online · Menyambung ke room...', true);
                 document.getElementById('roomInfoPill').classList.remove('hidden');
 
-                // Announce presence and discover peers
-                discoverPeers(roomId);
+                if (!isHost) {
+                    connectToPeer(roomId);
+                }
             });
 
             peer.on('call', incoming => {
@@ -546,82 +553,61 @@
             });
 
             peer.on('connection', conn => {
-                handleDataConn(conn);
+                handleDataConn(conn, conn.peer);
             });
 
             peer.on('error', e => {
                 console.error('Peer error:', e);
                 if (e.type === 'peer-unavailable') {
-                    // Peer left, remove from stage
-                    removePeerFromStage(e.peer);
+                    if (!isHost && e.peer === roomId) {
+                        setSt('Room tidak ditemukan', false);
+                        showErr('Room tidak ditemukan atau host sudah keluar.');
+                        toast('Room tidak ditemukan');
+                        return;
+                    }
+                    removePeerFromStage(e.peer, false);
                 }
             });
 
             peer.on('disconnected', () => {
-                setSt('Terputus...', false);
-                peer.reconnect();
-            });
-        }
-
-        function discoverPeers(roomId) {
-            // Use localStorage as simple discovery mechanism
-            const LK = 'room-' + roomId;
-            const myPresence = {
-                id: myId,
-                t: Date.now()
-            };
-
-            // Register presence
-            let peers = [];
-            try {
-                peers = JSON.parse(localStorage.getItem(LK) || '[]');
-            } catch (e) { }
-
-            const now = Date.now();
-            peers = peers.filter(p => now - p.t < 15000 && p.id !== myId); // Remove stale and self
-            peers.push(myPresence);
-            localStorage.setItem(LK, JSON.stringify(peers.slice(-50))); // Keep last 50
-
-            // Connect to existing peers
-            const existingPeers = peers.filter(p => p.id !== myId);
-            existingPeers.forEach(p => {
-                if (!connectedPeers[p.id] && !currentCalls[p.id]) {
-                    connectToPeer(p.id);
+                setSt('Menyambung ulang ke server...', false);
+                try {
+                    peer.reconnect();
+                } catch (e) {
+                    console.error('Reconnect failed:', e);
                 }
             });
-
-            // Poll for new peers
-            setInterval(() => {
-                if (!roomId || !peer) return;
-                try {
-                    let current = JSON.parse(localStorage.getItem(LK) || '[]');
-                    const n = Date.now();
-                    current = current.filter(p => n - p.t < 15000 && p.id !== myId);
-                    // Update own presence
-                    current.push({ id: myId, t: n });
-                    localStorage.setItem(LK, JSON.stringify(current.slice(-50)));
-
-                    // Connect to new peers
-                    current.forEach(p => {
-                        if (!connectedPeers[p.id] && !currentCalls[p.id] && p.id !== myId) {
-                            connectToPeer(p.id);
-                        }
-                    });
-                } catch (e) { }
-            }, 3000);
         }
 
         function connectToPeer(peerId) {
-            if (Object.keys(connectedPeers).length >= maxParticipants - 1) {
+            if (!peer || !peerId || peerId === myId) return;
+
+            if (Object.keys(connectedPeers).length >= maxParticipants - 1 && !connectedPeers[peerId]) {
                 toast('Room penuh, tidak dapat menambah peserta baru');
                 return;
             }
 
-            const call = peer.call(peerId, localStream || null);
-            if (!call) return;
+            if (!connectedPeers[peerId]) {
+                connectedPeers[peerId] = { stream: null, dataConn: null };
+            }
 
-            currentCalls[peerId] = call;
-            onCallHandlers(call, peerId);
+            if (!currentCalls[peerId]) {
+                const call = peer.call(peerId, localStream || null);
+                if (call) {
+                    currentCalls[peerId] = call;
+                    onCallHandlers(call, peerId);
+                }
+            }
+
+            const existingConn = connectedPeers[peerId].dataConn;
+            if (!existingConn || existingConn.open === false) {
+                try {
+                    const dc = peer.connect(peerId, { reliable: true });
+                    handleDataConn(dc, peerId);
+                } catch (e) {
+                    console.error('Data connection failed:', e);
+                }
+            }
         }
 
         function onCallHandlers(call, peerId) {
@@ -647,18 +633,6 @@
                 updateParticipantCount();
             });
 
-            // Open data channel
-            try {
-                const dc = peer.connect(peerId, { reliable: true });
-                dc.on('open', () => {
-                    if (connectedPeers[peerId]) {
-                        connectedPeers[peerId].dataConn = dc;
-                    } else {
-                        connectedPeers[peerId] = { stream: null, dataConn: dc };
-                    }
-                    handleDataConn(dc, peerId);
-                });
-            } catch (e) { }
         }
 
         function addRemoteVideo(peerId, stream) {
@@ -703,7 +677,7 @@
             }
         }
 
-        function removePeerFromStage(peerId) {
+        function removePeerFromStage(peerId, announce = true) {
             const vbox = document.getElementById('vbox-' + peerId);
             if (vbox) {
                 vbox.remove();
@@ -716,7 +690,7 @@
             }
             delete currentCalls[peerId];
             updateParticipantCount();
-            addSys('🔴 Seorang peserta keluar.');
+            if (announce) addSys('🔴 Seorang peserta keluar.');
         }
 
         function updateParticipantCount() {
@@ -865,12 +839,48 @@
         }
 
         // ─── Data Channel ─────────────────────────────────────────────────────────────
+        function broadcastData(payload, exceptPeerId = null) {
+            Object.entries(connectedPeers).forEach(([peerId, peerState]) => {
+                if (peerId === exceptPeerId || !peerState.dataConn || !peerState.dataConn.open) return;
+                try {
+                    peerState.dataConn.send(payload);
+                } catch (e) { }
+            });
+        }
+
         function handleDataConn(conn, peerId) {
+            if (!conn) return;
+            peerId = peerId || conn.peer;
+
             if (connectedPeers[peerId]) {
                 connectedPeers[peerId].dataConn = conn;
             } else {
                 connectedPeers[peerId] = { stream: null, dataConn: conn };
             }
+
+            conn.on('open', () => {
+                connectedPeers[peerId].dataConn = conn;
+                updateParticipantCount();
+
+                if (!isHost && peerId === roomId) {
+                    setSt('Online · Terhubung ke room', true);
+                    setChatEnabled(true);
+                }
+
+                if (isHost && peerId !== myId) {
+                    if (Object.keys(connectedPeers).length > maxParticipants - 1) {
+                        try { conn.send({ type: 'room-full' }); } catch (e) { }
+                        conn.close();
+                        return;
+                    }
+
+                    const peersInRoom = Object.keys(connectedPeers).filter(id => id !== peerId);
+                    try {
+                        conn.send({ type: 'peer-list', peers: peersInRoom });
+                    } catch (e) { }
+                    addSys('🟢 Peserta baru masuk.');
+                }
+            });
 
             conn.on('data', d => {
                 if (d.type === 'chat') {
@@ -879,16 +889,34 @@
                         unread++;
                         showBadge();
                     }
+                } else if (d.type === 'peer-list' && Array.isArray(d.peers)) {
+                    d.peers.forEach(pid => connectToPeer(pid));
                 } else if (d.type === 'scrstop') {
                     document.getElementById('scrbadge-' + peerId)?.classList.add('hidden');
                 } else if (d.type === 'scrstart') {
                     document.getElementById('scrbadge-' + peerId)?.classList.remove('hidden');
+                } else if (d.type === 'peer-left' && d.peerId) {
+                    removePeerFromStage(d.peerId, false);
+                } else if (d.type === 'room-full') {
+                    showErr('Room sudah penuh (maks 50 peserta).');
+                    toast('Room sudah penuh');
+                    setSt('Room penuh', false);
                 }
             });
 
             conn.on('close', () => {
                 if (connectedPeers[peerId]) {
                     connectedPeers[peerId].dataConn = null;
+                }
+
+                 if (isHost && peerId !== myId) {
+                    broadcastData({ type: 'peer-left', peerId }, peerId);
+                    removePeerFromStage(peerId, false);
+                    return;
+                }
+
+                if (!isHost && peerId === roomId) {
+                    setSt('Host room terputus', false);
                 }
             });
         }
