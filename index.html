@@ -1,843 +1,1026 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ChatAcak — Video & Screen Share</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centrova Meeto — Video & Screen Share</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'jakarta': ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        'bg': '#070b14',
+                        's1': '#0d1220',
+                        's2': '#131827',
+                        's3': '#1a2035',
+                        'border': 'rgba(120,160,255,0.08)',
+                        'border2': 'rgba(120,160,255,0.15)',
+                        'accent': '#3b82f6',
+                        'accent2': '#22d3ee',
+                        'text': '#e8eeff',
+                        'muted': '#5a6a90',
+                        'muted2': '#8898bb',
+                        'green': '#10d98a',
+                        'red': '#f43f5e',
+                        'yellow': '#fbbf24',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59, 130, 246, 0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 90% 100%, rgba(34, 211, 238, 0.05) 0%, transparent 60%);
+        }
 
-:root {
-  --bg: #070b14;
-  --s1: #0d1220;
-  --s2: #131827;
-  --s3: #1a2035;
-  --border: rgba(120,160,255,0.08);
-  --border2: rgba(120,160,255,0.15);
-  --accent: #3b82f6;
-  --accent2: #22d3ee;
-  --accentg: linear-gradient(135deg, #3b82f6, #22d3ee);
-  --text: #e8eeff;
-  --muted: #5a6a90;
-  --muted2: #8898bb;
-  --green: #10d98a;
-  --red: #f43f5e;
-  --yellow: #fbbf24;
-  --r: 12px;
-}
+        .dot.on {
+            box-shadow: 0 0 6px #10d98a;
+            animation: blink 2s infinite;
+        }
 
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-html, body { height:100%; background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; overflow:hidden; }
+        @keyframes blink {
 
-body::before {
-  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-  background:
-    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59,130,246,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(34,211,238,0.05) 0%, transparent 60%);
-}
+            0%,
+            100% {
+                opacity: 1
+            }
 
-/* ── SPLASH ── */
-#splash {
-  position:fixed; inset:0; z-index:500;
-  display:flex; align-items:center; justify-content:center;
-  background:var(--bg);
-}
-.splash-inner {
-  width:min(480px,92vw);
-  background:var(--s1); border:1px solid var(--border2); border-radius:20px;
-  padding:2.5rem 2rem;
-  display:flex; flex-direction:column; align-items:center; gap:1.25rem;
-  text-align:center;
-}
-.splash-logo {
-  font-size:2.2rem; font-weight:800; letter-spacing:-0.04em;
-  background:var(--accentg);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-}
-.splash-sub { color:var(--muted2); font-size:0.88rem; line-height:1.6; }
+            50% {
+                opacity: 0.4
+            }
+        }
 
-.mode-cards { display:grid; grid-template-columns:1fr 1fr; gap:0.65rem; width:100%; }
-.mode-card {
-  background:var(--s2); border:1.5px solid var(--border); border-radius:var(--r);
-  padding:1rem 0.65rem; cursor:pointer; transition:all 0.18s;
-  display:flex; flex-direction:column; align-items:center; gap:0.4rem;
-}
-.mode-card:hover { border-color:var(--accent); background:var(--s3); transform:translateY(-2px); }
-.mode-card.sel { border-color:var(--accent); background:rgba(59,130,246,0.1); }
-.mc-icon { font-size:1.7rem; line-height:1; }
-.mc-label { font-size:0.78rem; font-weight:700; color:var(--text); }
-.mc-desc { font-size:0.68rem; color:var(--muted); line-height:1.4; text-align:center; }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
 
-.div-line { width:100%; height:1px; background:var(--border); }
-#errBox {
-  display:none; width:100%;
-  background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.3);
-  border-radius:8px; padding:0.65rem 1rem; color:#fb7185; font-size:0.78rem; line-height:1.5;
-}
+        .spinner {
+            animation: spin 0.85s linear infinite;
+        }
 
-/* ── APP ── */
-#app { display:none; height:100vh; flex-direction:column; position:relative; z-index:1; }
+        .chat-wrap {
+            transition: right 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-.hdr {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0.6rem 1rem; border-bottom:1px solid var(--border);
-  background:rgba(7,11,20,0.9); backdrop-filter:blur(16px);
-  flex-shrink:0; gap:0.75rem; flex-wrap:wrap;
-}
-.logo {
-  font-size:1.1rem; font-weight:800; letter-spacing:-0.03em;
-  background:var(--accentg);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-  white-space:nowrap;
-}
-.hdr-mid { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
-.pill {
-  display:flex; align-items:center; gap:0.35rem;
-  background:var(--s2); border:1px solid var(--border); border-radius:100px;
-  padding:0.25rem 0.7rem; font-size:0.7rem; color:var(--muted2);
-  font-family:'DM Mono',monospace; cursor:pointer; transition:border-color 0.2s;
-}
-.pill:hover { border-color:var(--accent); }
-.dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
-.dot.on { background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .toast {
+            transition: transform 0.25s;
+        }
 
-.stage {
-  flex:1; display:grid; grid-template-columns:1fr 1fr;
-  gap:0.5rem; padding:0.5rem; min-height:0;
-}
-.vbox {
-  background:var(--s1); border:1px solid var(--border); border-radius:var(--r);
-  position:relative; overflow:hidden;
-  display:flex; align-items:center; justify-content:center;
-}
-.vbox video { width:100%; height:100%; object-fit:cover; display:none; border-radius:calc(var(--r) - 1px); }
-.vbox-label {
-  position:absolute; top:10px; left:10px;
-  background:rgba(7,11,20,0.75); backdrop-filter:blur(8px);
-  border:1px solid var(--border); border-radius:6px;
-  padding:3px 8px; font-size:0.65rem; font-weight:600; color:var(--muted2);
-  letter-spacing:0.05em; text-transform:uppercase; font-family:'DM Mono',monospace;
-  z-index:5;
-}
-.vbox-scrbadge {
-  display:none; position:absolute; top:10px; right:10px; z-index:5;
-  background:rgba(34,211,238,0.15); border:1px solid rgba(34,211,238,0.35);
-  color:var(--accent2); border-radius:6px; padding:3px 8px;
-  font-size:0.63rem; font-weight:700; letter-spacing:0.04em; font-family:'DM Mono',monospace;
-}
-.vbox-scrbadge.show { display:block; }
+        .msg.me {
+            border-bottom-right-radius: 3px;
+        }
 
-.ph {
-  position:absolute; inset:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:0.65rem;
-}
-.ph-ico { font-size:2.4rem; opacity:0.4; line-height:1; }
-.ph-t { font-size:0.82rem; font-weight:700; color:var(--muted); }
-.ph-s { font-size:0.7rem; color:var(--muted); text-align:center; padding:0 1.2rem; line-height:1.5; }
-.spinner {
-  width:34px; height:34px; border-radius:50%;
-  border:2px solid var(--border2); border-top-color:var(--accent);
-  animation:spin 0.85s linear infinite; display:none;
-}
-@keyframes spin { to{transform:rotate(360deg)} }
+        .msg.them {
+            border-bottom-left-radius: 3px;
+        }
 
-.no-cam-avatar {
-  width:70px; height:70px; border-radius:50%;
-  background:var(--s3); border:2px solid var(--border2);
-  display:flex; align-items:center; justify-content:center;
-  font-size:1.6rem; color:var(--accent2); font-weight:600;
-}
+        .btn:active:not(:disabled) {
+            transform: scale(0.97);
+        }
 
-.ctrl {
-  display:flex; align-items:center; justify-content:center;
-  gap:0.45rem; padding:0.55rem 0.75rem;
-  border-top:1px solid var(--border);
-  background:rgba(7,11,20,0.9); backdrop-filter:blur(12px);
-  flex-shrink:0; flex-wrap:wrap;
-}
-
-.btn {
-  display:inline-flex; align-items:center; justify-content:center; gap:0.35rem;
-  padding:0.5rem 1rem; border-radius:100px; border:1px solid var(--border2);
-  background:var(--s2); color:var(--text); font-family:'Syne',sans-serif;
-  font-size:0.78rem; font-weight:600; cursor:pointer; transition:all 0.16s; white-space:nowrap;
-}
-.btn:hover:not(:disabled) { background:var(--s3); border-color:rgba(120,160,255,0.3); transform:translateY(-1px); }
-.btn:active:not(:disabled) { transform:scale(0.97); }
-.btn:disabled { opacity:0.35; cursor:not-allowed; }
-.btn-a { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 4px 18px rgba(59,130,246,0.3); }
-.btn-a:hover:not(:disabled) { background:#4f92ff; border-color:#4f92ff; box-shadow:0 6px 26px rgba(59,130,246,0.45); }
-.btn-d { background:var(--red); border-color:var(--red); color:#fff; }
-.btn-d:hover:not(:disabled) { background:#f55f77; border-color:#f55f77; }
-.btn-c { background:rgba(34,211,238,0.1); border-color:rgba(34,211,238,0.25); color:var(--accent2); }
-.btn-c:hover:not(:disabled) { background:rgba(34,211,238,0.18); }
-.btn-c.active-scr { background:rgba(34,211,238,0.25); border-color:var(--accent2); }
-.btn-sq { width:38px; height:38px; padding:0; border-radius:10px; font-size:0.95rem; flex-shrink:0; }
-.btn-sq.off { opacity:0.4; }
-
-.chat-wrap {
-  position:fixed; right:-360px; top:0; bottom:0; width:340px;
-  background:var(--s1); border-left:1px solid var(--border);
-  display:flex; flex-direction:column; z-index:50;
-  transition:right 0.28s cubic-bezier(0.4,0,0.2,1);
-}
-.chat-wrap.open { right:0; }
-.chat-hdr {
-  padding:0.75rem 1rem; border-bottom:1px solid var(--border);
-  display:flex; align-items:center; justify-content:space-between;
-  font-size:0.82rem; font-weight:700;
-}
-.chat-msgs {
-  flex:1; overflow-y:auto; padding:0.7rem;
-  display:flex; flex-direction:column; gap:0.55rem;
-  scrollbar-width:thin; scrollbar-color:var(--s3) transparent;
-}
-.msg { max-width:82%; padding:0.4rem 0.8rem; border-radius:10px; font-size:0.8rem; line-height:1.5; word-break:break-word; }
-.msg.me { align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:3px; }
-.msg.them { align-self:flex-start; background:var(--s3); color:var(--text); border-bottom-left-radius:3px; }
-.msg.sys { align-self:center; background:none; color:var(--muted); font-size:0.68rem; text-align:center; padding:2px 0; font-family:'DM Mono',monospace; }
-.chat-in { padding:0.55rem; border-top:1px solid var(--border); display:flex; gap:0.4rem; }
-.chat-in input {
-  flex:1; background:var(--s2); border:1px solid var(--border); border-radius:100px;
-  padding:0.48rem 0.85rem; color:var(--text); font-family:'Syne',sans-serif; font-size:0.78rem;
-  outline:none; transition:border-color 0.2s;
-}
-.chat-in input:focus { border-color:var(--accent); }
-.chat-in input::placeholder { color:var(--muted); }
-.chat-in input:disabled { opacity:0.4; }
-
-.badge-b {
-  background:var(--red); color:#fff; width:16px; height:16px; border-radius:50%;
-  font-size:0.58rem; font-weight:700; display:none; align-items:center; justify-content:center; margin-left:2px;
-}
-.badge-b.show { display:flex; }
-
-.modal-bg {
-  display:none; position:fixed; inset:0; z-index:200;
-  background:rgba(0,0,0,0.65); backdrop-filter:blur(8px);
-  align-items:center; justify-content:center;
-}
-.modal-bg.show { display:flex; }
-.modal {
-  background:var(--s1); border:1px solid var(--border2); border-radius:16px;
-  padding:1.75rem; width:min(390px,90vw);
-  display:flex; flex-direction:column; gap:1rem; align-items:center; text-align:center;
-}
-.modal h3 { font-size:1.05rem; font-weight:700; }
-.modal p { font-size:0.8rem; color:var(--muted2); line-height:1.6; }
-.modal input[type=text] {
-  width:100%; background:var(--s2); border:1px solid var(--border2); border-radius:100px;
-  padding:0.6rem 1.1rem; color:var(--text); font-family:'DM Mono',monospace; font-size:0.82rem;
-  outline:none; text-align:center; transition:border-color 0.2s;
-}
-.modal input:focus { border-color:var(--accent); }
-.modal-btns { display:flex; gap:0.55rem; width:100%; }
-.modal-btns .btn { flex:1; }
-
-.toast {
-  position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(60px);
-  background:var(--s2); border:1px solid var(--border2); border-radius:100px;
-  padding:0.42rem 1.1rem; font-size:0.72rem; color:var(--muted2);
-  transition:transform 0.25s; z-index:300; pointer-events:none;
-  font-family:'DM Mono',monospace; white-space:nowrap;
-}
-.toast.up { transform:translateX(-50%) translateY(0); }
-
-@media(max-width:600px) {
-  .stage { grid-template-columns:1fr; grid-template-rows:1fr 1fr; }
-  .ctrl { gap:0.3rem; padding:0.45rem 0.5rem; }
-  .btn { padding:0.45rem 0.75rem; font-size:0.72rem; }
-  .chat-wrap { width:100%; right:-100%; }
-  .hdr { padding:0.5rem 0.75rem; }
-}
-</style>
+        @media(max-width:600px) {
+            .chat-wrap {
+                width: 100%;
+                right: -100%;
+            }
+        }
+    </style>
 </head>
-<body>
 
-<!-- SPLASH -->
-<div id="splash">
-  <div class="splash-inner">
-    <div class="splash-logo">ChatAcak</div>
-    <p class="splash-sub">Ngobrol video atau share screen dengan orang acak.<br>Pilih cara masuk kamu:</p>
+<body class="font-jakarta bg-bg text-text h-screen overflow-hidden">
+    <!-- CREATE ROOM MODAL -->
+    <div id="createRoomModal" class="fixed inset-0 z-[500] flex items-center justify-center bg-bg">
+        <div
+            class="w-[min(480px,92vw)] bg-s1 border border-border2 rounded-[20px] p-10 flex flex-col items-center gap-5 text-center">
+            <div class="text-[2.4rem] mb-2">🎥</div>
+            <div
+                class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
+                Centrova Meeto
+            </div>
+            <p class="text-muted2 text-sm leading-relaxed">
+                Buat room meeting instant dan bagikan link ke peserta.<br>Hingga <strong class="text-text">50
+                    peserta</strong> dalam satu room.
+            </p>
 
-    <div class="mode-cards">
-      <div class="mode-card sel" id="card-cam" onclick="selMode('cam')">
-        <div class="mc-icon">🎥</div>
-        <div class="mc-label">Kamera & Mic</div>
-        <div class="mc-desc">Video call normal</div>
-      </div>
-      <div class="mode-card" id="card-screen" onclick="selMode('screen')">
-        <div class="mc-icon">🖥️</div>
-        <div class="mc-label">Share Screen</div>
-        <div class="mc-desc">Bagikan layar + mic opsional</div>
-      </div>
-      <div class="mode-card" id="card-mic" onclick="selMode('mic')">
-        <div class="mc-icon">🎙️</div>
-        <div class="mc-label">Mic Saja</div>
-        <div class="mc-desc">Audio call, tanpa kamera</div>
-      </div>
-      <div class="mode-card" id="card-none" onclick="selMode('none')">
-        <div class="mc-icon">👁️</div>
-        <div class="mc-label">Teks Saja</div>
-        <div class="mc-desc">Tanpa kamera/mic — chat & lihat orang lain</div>
-      </div>
+            <div class="w-full bg-s2 border border-border rounded-xl p-4 flex flex-col gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 rounded-full bg-green animate-pulse"></div>
+                    <span class="text-sm font-semibold text-text">Room Baru Siap Dibuat</span>
+                </div>
+                <div class="text-xs text-muted2 text-left space-y-1">
+                    <p>• Maksimal 50 peserta</p>
+                    <p>• Link dapat dibagikan ke siapa saja</p>
+                    <p>• Video, audio, screen share, dan chat</p>
+                    <p>• Room akan tetap aktif selama ada peserta</p>
+                </div>
+            </div>
+
+            <div id="roomIdDisplay"
+                class="hidden w-full bg-s2 border border-border2 rounded-xl p-4 flex flex-col gap-2">
+                <p class="text-xs text-muted uppercase tracking-wider">Link Room</p>
+                <div class="flex items-center gap-2 bg-s3 border border-border rounded-lg p-2">
+                    <input id="roomLinkInput" type="text" readonly
+                        class="flex-1 bg-transparent text-accent2 text-sm font-mono outline-none text-center" />
+                    <button onclick="copyRoomLink()"
+                        class="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition">
+                        Salin
+                    </button>
+                </div>
+                <p class="text-xs text-muted">Peserta: <span id="participantCount"
+                        class="text-text font-semibold">1</span>/50</p>
+            </div>
+
+            <div id="errBox"
+                class="hidden w-full bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm leading-relaxed">
+            </div>
+
+            <button id="createRoomBtn" onclick="createRoom()"
+                class="w-full bg-gradient-to-r from-accent to-accent2 text-white font-bold py-3.5 rounded-full text-base hover:shadow-lg hover:shadow-accent/30 transition-all duration-200">
+                🚀 Buat Room Sekarang
+            </button>
+
+            <div class="flex items-center gap-3 w-full">
+                <div class="flex-1 h-px bg-border"></div>
+                <span class="text-xs text-muted">atau</span>
+                <div class="flex-1 h-px bg-border"></div>
+            </div>
+
+            <div class="w-full flex flex-col gap-2">
+                <p class="text-xs text-muted2">Sudah punya link room?</p>
+                <div class="flex gap-2">
+                    <input id="joinRoomInput" type="text" placeholder="Masukkan link room..." maxlength="50"
+                        class="flex-1 bg-s2 border border-border2 rounded-full px-4 py-2.5 text-text text-sm font-mono outline-none focus:border-accent transition text-center"
+                        onkeydown="if(event.key==='Enter')joinRoom()" />
+                    <button onclick="joinRoom()"
+                        class="px-5 py-2.5 bg-s2 border border-border2 rounded-full text-sm font-semibold hover:border-accent hover:bg-s3 transition">
+                        Gabung
+                    </button>
+                </div>
+            </div>
+
+            <p class="text-xs text-muted mt-2">Bersikaplah sopan. Tidak ada rekaman dari kami.</p>
+        </div>
     </div>
 
-    <div class="div-line"></div>
-    <div id="errBox"></div>
-    <button class="btn btn-a" id="startBtn" onclick="doStart()" style="width:100%;font-size:0.92rem;padding:0.72rem;">
-      ▶ &nbsp;Masuk Sekarang
-    </button>
-    <p style="font-size:0.66rem;color:var(--muted)">Bersikaplah sopan. Tidak ada rekaman dari kami.</p>
-  </div>
-</div>
+    <!-- APP -->
+    <div id="app" class="hidden h-screen flex-col relative z-10">
+        <!-- HEADER -->
+        <div
+            class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-bg/90 backdrop-blur-md flex-shrink-0 gap-3 flex-wrap">
+            <div
+                class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent whitespace-nowrap">
+                Centrova Meeto
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <div
+                    class="flex items-center gap-1.5 bg-s2 border border-border rounded-full px-3 py-1 text-xs text-muted2 font-mono cursor-default">
+                    <div class="w-1.5 h-1.5 rounded-full bg-muted flex-shrink-0" id="sdot"></div>
+                    <span id="stxt">Menghubungkan...</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-s2 border border-border rounded-full px-3 py-1 text-xs font-mono cursor-pointer hover:border-accent transition hidden"
+                    id="roomInfoPill" onclick="copyRoomLink()" title="Klik untuk salin link room">
+                    <span class="text-muted">Room:</span>
+                    <span id="roomIdTxt" class="text-accent2">—</span>
+                    <span class="text-muted">·</span>
+                    <span id="participantCountHeader" class="text-text font-semibold">1/50</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button
+                    class="px-3 py-1.5 bg-s2 border border-border2 rounded-full text-xs font-semibold hover:bg-s3 hover:border-accent/30 transition"
+                    id="inviteBtn" onclick="copyRoomLink()" disabled>
+                    📋 Salin Link
+                </button>
+                <button
+                    class="px-3 py-1.5 bg-red/80 border border-red rounded-full text-white text-xs font-semibold hover:bg-red transition"
+                    id="leaveBtn" onclick="leaveRoom()" disabled>
+                    ✕ Keluar
+                </button>
+            </div>
+        </div>
 
-<!-- APP -->
-<div id="app">
-  <div class="hdr">
-    <div class="logo">ChatAcak</div>
-    <div class="hdr-mid">
-      <div class="pill" style="cursor:default;">
-        <div class="dot" id="sdot"></div>
-        <span id="stxt">Menghubungkan...</span>
-      </div>
-      <div class="pill" id="idPill" onclick="copyId()" title="Klik untuk salin ID" style="display:none;">
-        <span style="color:var(--muted)">ID:</span>
-        <span id="myIdTxt" style="color:var(--accent2)">—</span>
-      </div>
+        <!-- STAGE -->
+        <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 p-2 min-h-0" id="stage">
+            <!-- Remote (akan diisi dinamis) -->
+        </div>
+
+        <!-- LOCAL VIDEO (selalu di pojok kanan bawah) -->
+        <div class="fixed bottom-20 right-4 z-20 w-48 h-36 md:w-64 md:h-48" id="localContainer">
+            <div class="relative w-full h-full bg-s1 border border-border rounded-xl overflow-hidden">
+                <video id="localVid" autoplay playsinline muted
+                    class="w-full h-full object-cover hidden rounded-xl"></video>
+                <div
+                    class="absolute top-2 left-2 bg-bg/75 backdrop-blur-md border border-border rounded-md px-2 py-0.5 text-xs font-semibold text-muted2 font-mono uppercase z-5">
+                    Kamu
+                </div>
+                <div class="absolute top-2 right-2 bg-accent2/15 border border-accent2/35 text-accent2 rounded-md px-2 py-0.5 text-xs font-bold font-mono hidden z-5"
+                    id="locScrBadge">
+                    SCREEN
+                </div>
+                <div class="absolute inset-0 flex flex-col items-center justify-center gap-2" id="localPH">
+                    <div class="w-12 h-12 rounded-full bg-s3 border-2 border-border2 flex items-center justify-center text-2xl text-accent2 font-semibold"
+                        id="localAva">?</div>
+                    <div class="text-xs font-semibold text-muted mt-1" id="localPhT">Tidak ada video</div>
+                    <div class="text-[0.65rem] text-muted text-center px-3 leading-relaxed" id="localPhS"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div
+            class="flex items-center justify-center gap-2 px-3 py-2.5 border-t border-border bg-bg/90 backdrop-blur-md flex-shrink-0 flex-wrap">
+            <button
+                class="px-4 py-2 bg-s2 border border-border2 rounded-full text-sm font-semibold hover:bg-s3 hover:border-accent/30 transition disabled:opacity-35 disabled:cursor-not-allowed"
+                id="micBtn" onclick="toggleMic()" title="Toggle mic" disabled>
+                🎙️
+            </button>
+            <button
+                class="px-4 py-2 bg-s2 border border-border2 rounded-full text-sm font-semibold hover:bg-s3 hover:border-accent/30 transition disabled:opacity-35 disabled:cursor-not-allowed"
+                id="camBtn" onclick="toggleCam()" title="Toggle cam" disabled>
+                📷
+            </button>
+            <button
+                class="px-4 py-2 bg-accent2/10 border border-accent2/25 text-accent2 rounded-full text-sm font-semibold hover:bg-accent2/18 transition disabled:opacity-35 disabled:cursor-not-allowed"
+                id="scrBtn" onclick="toggleScr()" disabled>
+                🖥️ Share Screen
+            </button>
+            <button
+                class="px-4 py-2 bg-s2 border border-border2 rounded-full text-sm font-semibold hover:bg-s3 hover:border-accent/30 transition relative"
+                onclick="toggleChat()">
+                💬 Chat
+                <div class="absolute -top-1 -right-1 bg-red text-white w-4 h-4 rounded-full text-[0.55rem] font-bold hidden items-center justify-center"
+                    id="chatBadge">0</div>
+            </button>
+        </div>
     </div>
-    <button class="btn" id="connFriendBtn" onclick="openConnModal()" disabled style="font-size:0.72rem;padding:0.38rem 0.8rem;">🔗 ID Teman</button>
-  </div>
 
-  <div class="stage">
-    <!-- Remote -->
-    <div class="vbox" id="remoteBox">
-      <video id="remoteVid" autoplay playsinline></video>
-      <div class="vbox-label">Stranger</div>
-      <div class="vbox-scrbadge" id="remScrBadge">SCREEN</div>
-      <div class="ph" id="remPH">
-        <div class="spinner" id="searchSpin"></div>
-        <div class="ph-ico" id="remIco">👥</div>
-        <div class="ph-t" id="remT">Belum terhubung</div>
-        <div class="ph-s" id="remS">Klik <b>Cari Baru</b> untuk mulai</div>
-      </div>
+    <!-- Chat -->
+    <div class="fixed right-[-360px] md:right-[-360px] top-0 bottom-0 w-[340px] md:w-[340px] w-full bg-s1 border-l border-border flex flex-col z-50 chat-wrap"
+        id="chatWrap">
+        <div class="px-4 py-3 border-b border-border flex items-center justify-between text-sm font-bold">
+            <span>Pesan Teks</span>
+            <button
+                class="w-7 h-7 flex items-center justify-center bg-transparent text-muted text-lg hover:text-text transition"
+                onclick="toggleChat()">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2 scrollbar-thin" id="chatMsgs">
+            <div class="self-center text-xs text-muted text-center py-1 font-mono">Chat aktif saat terhubung.</div>
+        </div>
+        <div class="p-2 border-t border-border flex gap-1.5">
+            <input type="text" id="chatIn" placeholder="Ketik pesan... (Enter)" maxlength="300"
+                class="flex-1 bg-s2 border border-border rounded-full px-3.5 py-2 text-text text-sm font-jakarta outline-none focus:border-accent transition disabled:opacity-40"
+                onkeydown="if(event.key==='Enter')sendChat()" disabled />
+            <button
+                class="w-9 h-9 flex items-center justify-center bg-accent text-white rounded-xl text-sm font-bold hover:bg-blue-500 transition disabled:opacity-35 disabled:cursor-not-allowed"
+                id="chatSend" onclick="sendChat()" disabled>↑</button>
+        </div>
     </div>
 
-    <!-- Local -->
-    <div class="vbox" id="localBox">
-      <video id="localVid" autoplay playsinline muted></video>
-      <div class="vbox-label">Kamu</div>
-      <div class="vbox-scrbadge" id="locScrBadge">SCREEN</div>
-      <div class="ph" id="localPH">
-        <div class="no-cam-avatar" id="localAva">?</div>
-        <div class="ph-t" style="margin-top:0.5rem" id="localPhT">Tidak ada video</div>
-        <div class="ph-s" id="localPhS">Mode ini tidak mengirim video</div>
-      </div>
-    </div>
-  </div>
+    <!-- TOAST -->
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-[60px] bg-s2 border border-border2 rounded-full px-5 py-2 text-xs text-muted2 font-mono whitespace-nowrap pointer-events-none toast z-[300]"
+        id="toast"></div>
 
-  <div class="ctrl">
-    <button class="btn btn-a" id="nextBtn" onclick="findNext()" disabled>⏭ Cari Baru</button>
-    <button class="btn btn-sq" id="micBtn" onclick="toggleMic()" title="Toggle mic" disabled>🎙️</button>
-    <button class="btn btn-sq" id="camBtn" onclick="toggleCam()" title="Toggle cam" disabled>📷</button>
-    <button class="btn btn-c" id="scrBtn" onclick="toggleScr()" disabled>🖥️ Share Screen</button>
-    <button class="btn" onclick="toggleChat()" style="position:relative;gap:0.3rem;">
-      💬 Chat <div class="badge-b" id="chatBadge">0</div>
-    </button>
-    <button class="btn btn-d" id="stopBtn" onclick="doStop()" disabled>✕ Stop</button>
-  </div>
-</div>
+    <script>
+        // ─── State ────────────────────────────────────────────────────────────────────
+        let peer, myId, localStream, screenStream, dataConn;
+        let currentCalls = {}; // peerId -> call object
+        let connectedPeers = {}; // peerId -> { stream, dataConn }
+        let isMicOn = true,
+            isCamOn = true,
+            isScrSharing = false;
+        let roomId = null;
+        let chatOpen = false,
+            unread = 0;
+        let maxParticipants = 50;
 
-<!-- Chat -->
-<div class="chat-wrap" id="chatWrap">
-  <div class="chat-hdr">
-    <span>Pesan Teks</span>
-    <button class="btn btn-sq" onclick="toggleChat()" style="width:28px;height:28px;font-size:0.8rem;border:none;background:transparent;color:var(--muted)">✕</button>
-  </div>
-  <div class="chat-msgs" id="chatMsgs">
-    <div class="msg sys">Chat aktif saat terhubung dengan seseorang.</div>
-  </div>
-  <div class="chat-in">
-    <input type="text" id="chatIn" placeholder="Ketik pesan... (Enter)" maxlength="300"
-      onkeydown="if(event.key==='Enter')sendChat()" disabled />
-    <button class="btn btn-sq btn-a" onclick="sendChat()" id="chatSend" disabled style="font-size:0.85rem;">↑</button>
-  </div>
-</div>
+        // ─── Room Management ──────────────────────────────────────────────────────────
+        function generateRoomId() {
+            return 'room-' + Math.random().toString(36).substr(2, 12);
+        }
 
-<!-- Connect by ID Modal -->
-<div class="modal-bg" id="connModal">
-  <div class="modal">
-    <div style="font-size:1.7rem">🔗</div>
-    <h3>Hubungkan ke Teman</h3>
-    <p>Minta temanmu salin ID mereka dari ChatAcak, lalu masukkan di sini.</p>
-    <input type="text" id="connIn" placeholder="Masukkan ID teman..." maxlength="40"
-      onkeydown="if(event.key==='Enter')doConnById()" />
-    <div class="modal-btns">
-      <button class="btn" onclick="closeConnModal()">Batal</button>
-      <button class="btn btn-a" onclick="doConnById()">Hubungkan</button>
-    </div>
-  </div>
-</div>
+        async function createRoom() {
+            const btn = document.getElementById('createRoomBtn');
+            const err = document.getElementById('errBox');
+            btn.disabled = true;
+            btn.textContent = 'Membuat Room...';
+            err.classList.add('hidden');
 
-<div class="toast" id="toast"></div>
+            try {
+                // Get user media
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                isCamOn = true;
+                isMicOn = true;
+            } catch (e) {
+                // Try audio only
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                    isCamOn = false;
+                    isMicOn = true;
+                } catch (e2) {
+                    localStream = null;
+                    isCamOn = false;
+                    isMicOn = false;
+                }
+            }
 
-<script>
-// ─── State ────────────────────────────────────────────────────────────────────
-let peer, myId, localStream, screenStream, currentCall, dataConn;
-let mode = 'cam';
-let isMicOn = true, isCamOn = true, isScrSharing = false;
-let isSearching = false, isConnected = false;
-let chatOpen = false, unread = 0;
-let pollTimer = null;
+            // Generate room ID
+            roomId = generateRoomId();
+            const roomLink = window.location.origin + window.location.pathname + '?room=' + roomId;
 
-// ─── Mode selection ───────────────────────────────────────────────────────────
-function selMode(m) {
-  mode = m;
-  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('sel'));
-  document.getElementById('card-' + m).classList.add('sel');
-}
+            // Show room info
+            document.getElementById('roomLinkInput').value = roomLink;
+            document.getElementById('roomIdDisplay').classList.remove('hidden');
+            document.getElementById('roomIdTxt').textContent = roomId.replace('room-', '').substring(0, 8);
+            document.getElementById('roomInfoPill').classList.remove('hidden');
+            document.getElementById('participantCount').textContent = '1';
+            document.getElementById('participantCountHeader').textContent = '1/50';
+            btn.textContent = '✅ Room Dibuat!';
 
-// ─── Start / get media ────────────────────────────────────────────────────────
-async function doStart() {
-  const btn = document.getElementById('startBtn');
-  const err = document.getElementById('errBox');
-  btn.disabled = true; btn.textContent = 'Memproses...';
-  err.style.display = 'none';
+            // Initialize PeerJS
+            initPeer(roomId);
 
-  try {
-    if (mode === 'cam') {
-      localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-    } else if (mode === 'mic') {
-      localStream = await navigator.mediaDevices.getUserMedia({video:false, audio:true});
-    } else if (mode === 'screen') {
-      screenStream = await navigator.mediaDevices.getDisplayMedia({video:{cursor:'always'}, audio:false});
-      const tracks = [...screenStream.getTracks()];
-      try {
-        const mic = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
-        tracks.push(mic.getAudioTracks()[0]);
-      } catch(_) {}
-      localStream = new MediaStream(tracks);
-      screenStream.getVideoTracks()[0].onended = () => stopScr(true);
-      isScrSharing = true;
-    } else {
-      localStream = null;
-    }
-  } catch(e) {
-    err.textContent = 'Gagal mengakses perangkat: ' + (e.message || e);
-    err.style.display = 'block';
-    btn.disabled = false; btn.textContent = '▶ Masuk Sekarang';
-    return;
-  }
+            // Show app after a short delay
+            setTimeout(() => {
+                document.getElementById('createRoomModal').style.display = 'none';
+                document.getElementById('app').classList.remove('hidden');
+                document.getElementById('app').style.display = 'flex';
+                setupLocalVideo();
+                setupControls();
+                document.getElementById('inviteBtn').disabled = false;
+                document.getElementById('leaveBtn').disabled = false;
+                addSys('✅ Room berhasil dibuat! Bagikan link untuk mengundang peserta.');
+            }, 1000);
+        }
 
-  // Show local video
-  if (localStream && localStream.getVideoTracks().length > 0) {
-    const lv = document.getElementById('localVid');
-    lv.srcObject = localStream; lv.style.display = 'block';
-    document.getElementById('localPH').style.display = 'none';
-    if (mode === 'screen') document.getElementById('locScrBadge').classList.add('show');
-  } else {
-    // Show avatar placeholder
-    const avatarIcons = {cam:'📷', mic:'🎙️', screen:'🖥️', none:'👁️'};
-    document.getElementById('localAva').textContent = avatarIcons[mode];
-    document.getElementById('localPhT').textContent =
-      mode === 'mic' ? 'Hanya Audio' : mode === 'none' ? 'Mode Teks Saja' : 'Tidak ada video';
-    document.getElementById('localPhS').textContent =
-      mode === 'mic' ? 'Kamu bisa didengar tapi tidak dilihat' :
-      mode === 'none' ? 'Kamu tidak mengirim video/audio' : '';
-  }
+        function joinRoom() {
+            const input = document.getElementById('joinRoomInput').value.trim();
+            if (!input) {
+                showErr('Masukkan link room terlebih dahulu.');
+                return;
+            }
 
-  // Setup control states
-  const hasCam = localStream && localStream.getVideoTracks().length > 0 && mode === 'cam';
-  const hasMic = localStream && localStream.getAudioTracks().length > 0;
-  document.getElementById('camBtn').disabled = !hasCam;
-  document.getElementById('micBtn').disabled = !hasMic;
-  if (!hasCam) document.getElementById('camBtn').classList.add('off');
-  if (!hasMic) document.getElementById('micBtn').classList.add('off');
+            // Extract room ID from link or use as-is
+            let targetRoomId = input;
+            try {
+                const url = new URL(input);
+                targetRoomId = url.searchParams.get('room') || input;
+            } catch (e) {
+                // Not a URL, use as room ID directly
+                if (!input.startsWith('room-')) {
+                    targetRoomId = 'room-' + input;
+                }
+            }
 
-  document.getElementById('splash').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  initPeer();
-}
+            const btn = document.getElementById('createRoomBtn');
+            const err = document.getElementById('errBox');
+            btn.disabled = true;
+            btn.textContent = 'Menghubungkan...';
+            err.classList.add('hidden');
 
-// ─── PeerJS ───────────────────────────────────────────────────────────────────
-function initPeer() {
-  setSt('Menghubungkan ke server...', false);
-  const id = 'ca2-' + Math.random().toString(36).substr(2, 9);
-  peer = new Peer(id, {
-    host: '0.peerjs.com', port: 443, path: '/', secure: true, debug: 0,
-    config: { iceServers: [
-      {urls:'stun:stun.l.google.com:19302'},
-      {urls:'stun:stun1.l.google.com:19302'},
-      {urls:'stun:global.stun.twilio.com:3478'}
-    ]}
-  });
+            // Get user media first
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    isCamOn = true;
+                    isMicOn = true;
+                    setupAfterMedia(targetRoomId);
+                })
+                .catch(e => {
+                    navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+                        .then(stream => {
+                            localStream = stream;
+                            isCamOn = false;
+                            isMicOn = true;
+                            setupAfterMedia(targetRoomId);
+                        })
+                        .catch(e2 => {
+                            localStream = null;
+                            isCamOn = false;
+                            isMicOn = false;
+                            setupAfterMedia(targetRoomId);
+                        });
+                });
+        }
 
-  peer.on('open', pid => {
-    myId = pid;
-    document.getElementById('myIdTxt').textContent = pid.replace('ca2-','');
-    document.getElementById('idPill').style.display = 'flex';
-    setSt('Online', true);
-    ['nextBtn','scrBtn','stopBtn','connFriendBtn'].forEach(id => document.getElementById(id).disabled = false);
-    findNext();
-  });
+        function setupAfterMedia(targetRoomId) {
+            roomId = targetRoomId;
+            initPeer(roomId);
 
-  peer.on('call', incoming => {
-    if (currentCall) { incoming.close(); return; }
-    currentCall = incoming;
-    incoming.answer(localStream || null);
-    onCallHandlers(incoming);
-  });
+            document.getElementById('createRoomModal').style.display = 'none';
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('app').style.display = 'flex';
+            document.getElementById('roomIdDisplay').classList.remove('hidden');
+            document.getElementById('roomLinkInput').value = window.location.origin + window.location.pathname +
+                '?room=' + roomId;
+            document.getElementById('roomIdTxt').textContent = roomId.replace('room-', '').substring(0, 8);
+            document.getElementById('roomInfoPill').classList.remove('hidden');
+            document.getElementById('participantCount').textContent = '1';
+            document.getElementById('participantCountHeader').textContent = '1/50';
+            setupLocalVideo();
+            setupControls();
+            document.getElementById('inviteBtn').disabled = false;
+            document.getElementById('leaveBtn').disabled = false;
+            document.getElementById('createRoomBtn').textContent = '✅ Bergabung!';
+            addSys('✅ Berhasil bergabung ke room!');
+        }
 
-  peer.on('connection', conn => handleDataConn(conn));
+        function showErr(msg) {
+            const err = document.getElementById('errBox');
+            err.textContent = msg;
+            err.classList.remove('hidden');
+        }
 
-  peer.on('error', e => {
-    if (e.type === 'peer-unavailable') {
-      setTimeout(() => { if (isSearching) findNext(); }, 2500);
-    } else if (['network','server-error','socket-error'].includes(e.type)) {
-      setSt('Masalah koneksi, memuat ulang...', false);
-      setTimeout(() => location.reload(), 3500);
-    }
-  });
-  peer.on('disconnected', () => { setSt('Terputus...', false); peer.reconnect(); });
-}
+        function copyRoomLink() {
+            const link = document.getElementById('roomLinkInput').value || (window.location.origin + window.location
+                .pathname + '?room=' + roomId);
+            navigator.clipboard.writeText(link).then(() => toast('Link room disalin ✓')).catch(() => { });
+        }
 
-// ─── Lobby ────────────────────────────────────────────────────────────────────
-const LK = 'ca2-lobby';
+        function leaveRoom() {
+            // Close all connections
+            Object.values(currentCalls).forEach(call => {
+                try { call.close(); } catch (e) { }
+            });
+            Object.keys(connectedPeers).forEach(peerId => {
+                if (connectedPeers[peerId].dataConn) {
+                    try { connectedPeers[peerId].dataConn.close(); } catch (e) { }
+                }
+            });
+            currentCalls = {};
+            connectedPeers = {};
 
-function saveLobby() {
-  if (!myId) return;
-  try {
-    const raw = JSON.parse(localStorage.getItem(LK) || '[]');
-    const now = Date.now();
-    const fresh = raw.filter(e => now - e.t < 25000 && e.id !== myId);
-    fresh.push({id:myId, t:now});
-    localStorage.setItem(LK, JSON.stringify(fresh.slice(-30)));
-  } catch(_){}
-}
+            // Stop local stream
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            if (screenStream) {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+            }
 
-function getLobby() {
-  try {
-    const now = Date.now();
-    return JSON.parse(localStorage.getItem(LK)||'[]')
-      .filter(e => now-e.t < 25000 && e.id !== myId)
-      .map(e=>e.id);
-  } catch(_){ return []; }
-}
+            // Reset UI
+            document.getElementById('app').classList.add('hidden');
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('createRoomModal').style.display = 'flex';
+            document.getElementById('roomIdDisplay').classList.add('hidden');
+            document.getElementById('roomInfoPill').classList.add('hidden');
+            document.getElementById('createRoomBtn').disabled = false;
+            document.getElementById('createRoomBtn').textContent = '🚀 Buat Room Sekarang';
+            document.getElementById('inviteBtn').disabled = true;
+            document.getElementById('leaveBtn').disabled = true;
+            document.getElementById('stage').innerHTML = '';
+            document.getElementById('chatMsgs').innerHTML =
+                '<div class="self-center text-xs text-muted text-center py-1 font-mono">Chat aktif saat terhubung.</div>';
+            setChatEnabled(false);
+            document.getElementById('locScrBadge').classList.add('hidden');
+            isScrSharing = false;
+            document.getElementById('scrBtn').classList.remove('active-scr');
+            document.getElementById('scrBtn').textContent = '🖥️ Share Screen';
+            roomId = null;
 
-function removeSelf() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(LK)||'[]');
-    localStorage.setItem(LK, JSON.stringify(raw.filter(e=>e.id!==myId)));
-  } catch(_){}
-}
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            toast('Keluar dari room');
+        }
 
-// ─── Matching ─────────────────────────────────────────────────────────────────
-function findNext() {
-  if (!peer) return;
-  isSearching = true;
-  disconnectCurrent(false);
-  setWaiting('searching');
-  saveLobby();
-  const list = getLobby().sort(()=>Math.random()-0.5);
-  list.length ? tryList(list, 0) : startPolling();
-}
+        // ─── PeerJS ───────────────────────────────────────────────────────────────────
+        function initPeer(roomId) {
+            const peerId = roomId + '--' + Math.random().toString(36).substr(2, 6);
+            peer = new Peer(peerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                debug: 0,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                }
+            });
 
-function tryList(list, i) {
-  if (!isSearching) return;
-  if (i >= list.length) { startPolling(); return; }
-  setWaiting('connecting');
-  const call = peer.call(list[i], localStream || null);
-  if (!call) { tryList(list, i+1); return; }
-  let ok = false;
-  call.on('stream', rs => {
-    if (ok) return; ok = true;
-    isSearching = false; currentCall = call;
-    onRemoteStream(rs);
-    try { const dc = peer.connect(list[i],{reliable:true}); dc.on('open',()=>handleDataConn(dc)); } catch(_){}
-  });
-  call.on('error', ()=>{ if (!ok) tryList(list, i+1); });
-  call.on('close', ()=>{ if (ok && isConnected) onDisconnect(); });
-  setTimeout(()=>{ if (!ok){ call.close(); tryList(list, i+1); } }, 5000);
-}
+            peer.on('open', pid => {
+                myId = pid;
+                document.getElementById('roomIdTxt').textContent = roomId.replace('room-', '').substring(0, 8);
+                setSt('Online · Room aktif', true);
+                document.getElementById('roomInfoPill').classList.remove('hidden');
 
-function startPolling() {
-  setWaiting('waiting');
-  clearInterval(pollTimer);
-  pollTimer = setInterval(()=>{
-    if (!isSearching){ clearInterval(pollTimer); return; }
-    saveLobby();
-    const p = getLobby().sort(()=>Math.random()-0.5);
-    if (p.length){ clearInterval(pollTimer); tryList(p,0); }
-  }, 3000);
-}
+                // Announce presence and discover peers
+                discoverPeers(roomId);
+            });
 
-// ─── Call handlers ────────────────────────────────────────────────────────────
-function onCallHandlers(call) {
-  call.on('stream', rs => {
-    isSearching = false; currentCall = call;
-    onRemoteStream(rs);
-  });
-  call.on('close', () => { if (isConnected) onDisconnect(); });
-  call.on('error', () => { if (isConnected) onDisconnect(); });
-}
+            peer.on('call', incoming => {
+                const callerId = incoming.peer;
+                // Check participant limit
+                if (Object.keys(connectedPeers).length >= maxParticipants) {
+                    incoming.close();
+                    toast('Room sudah penuh (maks 50 peserta)');
+                    return;
+                }
 
-function onRemoteStream(stream) {
-  isConnected = true;
-  const rv = document.getElementById('remoteVid');
-  rv.srcObject = stream; rv.style.display = 'block';
-  document.getElementById('remPH').style.display = 'none';
-  // Heuristic: detect screen share from track label
-  const vt = stream.getVideoTracks()[0];
-  const scr = vt && /screen|display|window|monitor/i.test(vt.label);
-  if (scr) document.getElementById('remScrBadge').classList.add('show');
-  addSys('✅ Terhubung! Katakan halo~');
-  setChatEnabled(true);
-}
+                incoming.answer(localStream || null);
+                currentCalls[callerId] = incoming;
+                onCallHandlers(incoming, callerId);
+            });
 
-function onDisconnect() {
-  isConnected = false; currentCall = null; dataConn = null;
-  setChatEnabled(false);
-  addSys('🔴 Stranger telah keluar.');
-  setWaiting('idle');
-  document.getElementById('remScrBadge').classList.remove('show');
-}
+            peer.on('connection', conn => {
+                handleDataConn(conn);
+            });
 
-function disconnectCurrent(final) {
-  clearInterval(pollTimer);
-  isConnected = false;
-  if (currentCall){ try{currentCall.close();}catch(_){} currentCall=null; }
-  if (dataConn){ try{dataConn.close();}catch(_){} dataConn=null; }
-  const rv = document.getElementById('remoteVid');
-  rv.srcObject=null; rv.style.display='none';
-  document.getElementById('remScrBadge').classList.remove('show');
-  setChatEnabled(false);
-  if (final){ isSearching=false; removeSelf(); }
-}
+            peer.on('error', e => {
+                console.error('Peer error:', e);
+                if (e.type === 'peer-unavailable') {
+                    // Peer left, remove from stage
+                    removePeerFromStage(e.peer);
+                }
+            });
 
-function doStop() {
-  disconnectCurrent(true);
-  setWaiting('idle');
-  addSys('⏸ Sesi dihentikan.');
-}
+            peer.on('disconnected', () => {
+                setSt('Terputus...', false);
+                peer.reconnect();
+            });
+        }
 
-// ─── Screen share ─────────────────────────────────────────────────────────────
-async function toggleScr() {
-  isScrSharing ? stopScr(false) : await startScr();
-}
+        function discoverPeers(roomId) {
+            // Use localStorage as simple discovery mechanism
+            const LK = 'room-' + roomId;
+            const myPresence = {
+                id: myId,
+                t: Date.now()
+            };
 
-async function startScr() {
-  try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({video:{cursor:'always'}, audio:false});
-    const scrTrack = screenStream.getVideoTracks()[0];
-    scrTrack.onended = () => stopScr(true);
+            // Register presence
+            let peers = [];
+            try {
+                peers = JSON.parse(localStorage.getItem(LK) || '[]');
+            } catch (e) { }
 
-    if (localStream) {
-      const old = localStream.getVideoTracks()[0];
-      if (old) { localStream.removeTrack(old); old.stop(); }
-      localStream.addTrack(scrTrack);
-    } else {
-      localStream = new MediaStream([scrTrack]);
-    }
+            const now = Date.now();
+            peers = peers.filter(p => now - p.t < 15000 && p.id !== myId); // Remove stale and self
+            peers.push(myPresence);
+            localStorage.setItem(LK, JSON.stringify(peers.slice(-50))); // Keep last 50
 
-    const lv = document.getElementById('localVid');
-    lv.srcObject = localStream; lv.style.display = 'block';
-    document.getElementById('localPH').style.display = 'none';
-    document.getElementById('locScrBadge').classList.add('show');
+            // Connect to existing peers
+            const existingPeers = peers.filter(p => p.id !== myId);
+            existingPeers.forEach(p => {
+                if (!connectedPeers[p.id] && !currentCalls[p.id]) {
+                    connectToPeer(p.id);
+                }
+            });
 
-    // Replace track in live call
-    if (currentCall && currentCall.peerConnection) {
-      const senders = currentCall.peerConnection.getSenders();
-      const vs = senders.find(s => s.track && s.track.kind === 'video');
-      if (vs) { await vs.replaceTrack(scrTrack); }
-      else {
-        // no video sender yet, add track
-        currentCall.peerConnection.addTrack(scrTrack, localStream);
-      }
-    }
+            // Poll for new peers
+            setInterval(() => {
+                if (!roomId || !peer) return;
+                try {
+                    let current = JSON.parse(localStorage.getItem(LK) || '[]');
+                    const n = Date.now();
+                    current = current.filter(p => n - p.t < 15000 && p.id !== myId);
+                    // Update own presence
+                    current.push({ id: myId, t: n });
+                    localStorage.setItem(LK, JSON.stringify(current.slice(-50)));
 
-    isScrSharing = true;
-    document.getElementById('scrBtn').classList.add('active-scr');
-    document.getElementById('scrBtn').textContent = '🖥️ Stop Share';
-    toast('Screen share aktif');
-    if (dataConn) try{dataConn.send({type:'scrstart'});}catch(_){}
-  } catch(e) {
-    if (e.name !== 'NotAllowedError') toast('Gagal share screen: ' + e.message);
-  }
-}
+                    // Connect to new peers
+                    current.forEach(p => {
+                        if (!connectedPeers[p.id] && !currentCalls[p.id] && p.id !== myId) {
+                            connectToPeer(p.id);
+                        }
+                    });
+                } catch (e) { }
+            }, 3000);
+        }
 
-async function stopScr(auto) {
-  isScrSharing = false;
-  document.getElementById('locScrBadge').classList.remove('show');
-  document.getElementById('scrBtn').classList.remove('active-scr');
-  document.getElementById('scrBtn').textContent = '🖥️ Share Screen';
+        function connectToPeer(peerId) {
+            if (Object.keys(connectedPeers).length >= maxParticipants - 1) {
+                toast('Room penuh, tidak dapat menambah peserta baru');
+                return;
+            }
 
-  if (screenStream) { screenStream.getTracks().forEach(t=>t.stop()); screenStream = null; }
-  if (dataConn) try{dataConn.send({type:'scrstop'});}catch(_){}
+            const call = peer.call(peerId, localStream || null);
+            if (!call) return;
 
-  if (mode === 'screen') {
-    // Was screen-share mode from start, go back to blank
-    document.getElementById('localVid').style.display = 'none';
-    document.getElementById('localPH').style.display = 'flex';
-    localStream = null;
-    if (currentCall && currentCall.peerConnection) {
-      const senders = currentCall.peerConnection.getSenders();
-      const vs = senders.find(s => s.track && s.track.kind==='video');
-      if (vs) vs.replaceTrack(null).catch(()=>{});
-    }
-    if (!auto) toast('Screen share dihentikan');
-    return;
-  }
+            currentCalls[peerId] = call;
+            onCallHandlers(call, peerId);
+        }
 
-  // Restore cam if was cam mode
-  if (mode === 'cam') {
-    try {
-      const cs = await navigator.mediaDevices.getUserMedia({video:true});
-      const camT = cs.getVideoTracks()[0];
-      if (localStream) {
-        const old = localStream.getVideoTracks()[0];
-        if (old) { localStream.removeTrack(old); old.stop(); }
-        localStream.addTrack(camT);
-      } else { localStream = new MediaStream([camT]); }
-      document.getElementById('localVid').srcObject = localStream;
-      if (currentCall && currentCall.peerConnection) {
-        const vs = currentCall.peerConnection.getSenders().find(s=>s.track&&s.track.kind==='video');
-        if (vs) await vs.replaceTrack(camT);
-      }
-      isCamOn = true;
-    } catch(_){}
-  }
-  if (!auto) toast('Screen share dihentikan, kamera dipulihkan');
-}
+        function onCallHandlers(call, peerId) {
+            call.on('stream', stream => {
+                if (!connectedPeers[peerId]) {
+                    connectedPeers[peerId] = { stream, dataConn: null };
+                } else {
+                    connectedPeers[peerId].stream = stream;
+                }
+                addRemoteVideo(peerId, stream);
+                updateParticipantCount();
+            });
 
-// ─── Data channel ─────────────────────────────────────────────────────────────
-function handleDataConn(conn) {
-  dataConn = conn;
-  conn.on('data', d => {
-    if (d.type === 'chat') {
-      addMsg(d.text, 'them');
-      if (!chatOpen) { unread++; showBadge(); }
-    } else if (d.type === 'scrstop') {
-      document.getElementById('remScrBadge').classList.remove('show');
-    } else if (d.type === 'scrstart') {
-      document.getElementById('remScrBadge').classList.add('show');
-    }
-  });
-  conn.on('close', ()=>{ dataConn=null; });
-}
+            call.on('close', () => {
+                removePeerFromStage(peerId);
+                delete currentCalls[peerId];
+                updateParticipantCount();
+            });
 
-// ─── Toggles ──────────────────────────────────────────────────────────────────
-function toggleMic() {
-  if (!localStream) return;
-  isMicOn = !isMicOn;
-  localStream.getAudioTracks().forEach(t=>t.enabled=isMicOn);
-  const b = document.getElementById('micBtn');
-  b.textContent = isMicOn ? '🎙️' : '🔇';
-  b.classList.toggle('off', !isMicOn);
-}
-function toggleCam() {
-  if (!localStream || mode !== 'cam') return;
-  isCamOn = !isCamOn;
-  localStream.getVideoTracks().forEach(t=>t.enabled=isCamOn);
-  const b = document.getElementById('camBtn');
-  b.textContent = isCamOn ? '📷' : '🚫';
-  b.classList.toggle('off', !isCamOn);
-}
+            call.on('error', () => {
+                removePeerFromStage(peerId);
+                delete currentCalls[peerId];
+                updateParticipantCount();
+            });
 
-// ─── UI helpers ───────────────────────────────────────────────────────────────
-function setWaiting(state) {
-  const ph=document.getElementById('remPH'), sp=document.getElementById('searchSpin');
-  const ic=document.getElementById('remIco'), tt=document.getElementById('remT'), ss=document.getElementById('remS');
-  ph.style.display='flex';
-  document.getElementById('remoteVid').style.display='none';
-  if (state==='searching') {
-    sp.style.display='block'; ic.style.display='none';
-    tt.textContent='Mencari...'; ss.textContent='Memeriksa siapa yang sedang online...';
-  } else if (state==='connecting') {
-    sp.style.display='block'; ic.style.display='none';
-    tt.textContent='Menghubungkan...'; ss.textContent='Seseorang ditemukan!';
-  } else if (state==='waiting') {
-    sp.style.display='block'; ic.style.display='none';
-    tt.textContent='Menunggu...'; ss.textContent='Belum ada yang online. Coba sebarkan link ini! 😊';
-  } else {
-    sp.style.display='none'; ic.style.display='block';
-    tt.textContent='Belum terhubung'; ss.innerHTML='Klik <b>Cari Baru</b> untuk mulai';
-  }
-}
+            // Open data channel
+            try {
+                const dc = peer.connect(peerId, { reliable: true });
+                dc.on('open', () => {
+                    if (connectedPeers[peerId]) {
+                        connectedPeers[peerId].dataConn = dc;
+                    } else {
+                        connectedPeers[peerId] = { stream: null, dataConn: dc };
+                    }
+                    handleDataConn(dc, peerId);
+                });
+            } catch (e) { }
+        }
 
-function setSt(txt, on) {
-  document.getElementById('stxt').textContent = txt;
-  document.getElementById('sdot').className = 'dot' + (on?' on':'');
-}
+        function addRemoteVideo(peerId, stream) {
+            const stage = document.getElementById('stage');
+            let vbox = document.getElementById('vbox-' + peerId);
 
-function setChatEnabled(on) {
-  document.getElementById('chatIn').disabled = !on;
-  document.getElementById('chatSend').disabled = !on;
-  document.getElementById('chatIn').placeholder = on ? 'Ketik pesan... (Enter)' : 'Terhubung dulu...';
-}
+            if (!vbox) {
+                vbox = document.createElement('div');
+                vbox.id = 'vbox-' + peerId;
+                vbox.className =
+                    'relative bg-s1 border border-border rounded-xl overflow-hidden flex items-center justify-center min-h-[200px]';
+                vbox.innerHTML = `
+                    <video id="vid-${peerId}" autoplay playsinline class="w-full h-full object-cover hidden rounded-xl"></video>
+                    <div class="absolute top-2 left-2 bg-bg/75 backdrop-blur-md border border-border rounded-md px-2 py-0.5 text-xs font-semibold text-muted2 font-mono uppercase z-5">
+                        Peserta
+                    </div>
+                    <div class="absolute top-2 right-2 bg-accent2/15 border border-accent2/35 text-accent2 rounded-md px-2 py-0.5 text-xs font-bold font-mono hidden z-5" id="scrbadge-${peerId}">
+                        SCREEN
+                    </div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-10 h-10 rounded-full bg-s3 border-2 border-border2 flex items-center justify-center text-lg text-accent2 font-semibold">
+                            👤
+                        </div>
+                    </div>
+                `;
+                stage.appendChild(vbox);
+            }
 
-function toggleChat() {
-  chatOpen = !chatOpen;
-  document.getElementById('chatWrap').classList.toggle('open', chatOpen);
-  if (chatOpen) { unread=0; document.getElementById('chatBadge').classList.remove('show'); setTimeout(()=>document.getElementById('chatIn').focus(),280); }
-}
+            const vid = document.getElementById('vid-' + peerId);
+            if (vid && stream) {
+                vid.srcObject = stream;
+                vid.classList.remove('hidden');
+                // Hide placeholder
+                const placeholder = vbox.querySelector('.absolute.inset-0.flex');
+                if (placeholder) placeholder.style.display = 'none';
 
-function addMsg(txt, who) {
-  const el=document.createElement('div'); el.className='msg '+who; el.textContent=txt;
-  const c=document.getElementById('chatMsgs'); c.appendChild(el); c.scrollTop=c.scrollHeight;
-}
-function addSys(txt) {
-  const el=document.createElement('div'); el.className='msg sys'; el.textContent=txt;
-  const c=document.getElementById('chatMsgs'); c.appendChild(el); c.scrollTop=c.scrollHeight;
-}
+                // Check for screen share
+                const vt = stream.getVideoTracks()[0];
+                if (vt && /screen|display|window|monitor/i.test(vt.label)) {
+                    document.getElementById('scrbadge-' + peerId)?.classList.remove('hidden');
+                }
+            }
+        }
 
-function sendChat() {
-  const inp=document.getElementById('chatIn'); const txt=inp.value.trim();
-  if (!txt||!dataConn) return;
-  try{dataConn.send({type:'chat',text:txt});}catch(_){}
-  addMsg(txt,'me'); inp.value='';
-}
+        function removePeerFromStage(peerId) {
+            const vbox = document.getElementById('vbox-' + peerId);
+            if (vbox) {
+                vbox.remove();
+            }
+            if (connectedPeers[peerId]) {
+                if (connectedPeers[peerId].dataConn) {
+                    try { connectedPeers[peerId].dataConn.close(); } catch (e) { }
+                }
+                delete connectedPeers[peerId];
+            }
+            delete currentCalls[peerId];
+            updateParticipantCount();
+            addSys('🔴 Seorang peserta keluar.');
+        }
 
-function showBadge() {
-  const b=document.getElementById('chatBadge'); b.textContent=unread; b.classList.add('show');
-}
+        function updateParticipantCount() {
+            const count = Object.keys(connectedPeers).length + 1; // +1 for self
+            document.getElementById('participantCount').textContent = count;
+            document.getElementById('participantCountHeader').textContent = count + '/50';
+        }
 
-function copyId() {
-  const s=(myId||'').replace('ca2-','');
-  navigator.clipboard.writeText(s).then(()=>toast('ID disalin ✓')).catch(()=>{});
-}
+        // ─── Local Video Setup ────────────────────────────────────────────────────────
+        function setupLocalVideo() {
+            if (localStream && localStream.getVideoTracks().length > 0) {
+                const lv = document.getElementById('localVid');
+                lv.srcObject = localStream;
+                lv.classList.remove('hidden');
+                document.getElementById('localPH').style.display = 'none';
+            } else {
+                const avatarIcons = { cam: '📷', mic: '🎙️', screen: '🖥️', none: '👁️' };
+                document.getElementById('localAva').textContent = isMicOn ? '🎙️' : '👁️';
+                document.getElementById('localPhT').textContent = isMicOn ? 'Hanya Audio' : 'Tidak ada media';
+                document.getElementById('localPhS').textContent = '';
+            }
+        }
 
-function openConnModal() { document.getElementById('connModal').classList.add('show'); setTimeout(()=>document.getElementById('connIn').focus(),100); }
-function closeConnModal() { document.getElementById('connModal').classList.remove('show'); }
+        function setupControls() {
+            const hasCam = localStream && localStream.getVideoTracks().length > 0;
+            const hasMic = localStream && localStream.getAudioTracks().length > 0;
+            document.getElementById('camBtn').disabled = !hasCam;
+            document.getElementById('micBtn').disabled = !hasMic;
+            document.getElementById('scrBtn').disabled = false;
+            if (!hasCam) document.getElementById('camBtn').classList.add('opacity-40');
+            if (!hasMic) document.getElementById('micBtn').classList.add('opacity-40');
+            document.getElementById('micBtn').textContent = isMicOn ? '🎙️' : '🔇';
+            document.getElementById('camBtn').textContent = isCamOn ? '📷' : '🚫';
+        }
 
-function doConnById() {
-  const raw=document.getElementById('connIn').value.trim();
-  if (!raw) return;
-  closeConnModal();
-  const tid = raw.startsWith('ca2-') ? raw : 'ca2-'+raw;
-  disconnectCurrent(false); isSearching=false;
-  setWaiting('connecting');
-  const call=peer.call(tid, localStream||null);
-  if (!call) { toast('ID tidak valid'); setWaiting('idle'); return; }
-  let ok=false;
-  call.on('stream', rs=>{
-    if(ok)return; ok=true; currentCall=call; onRemoteStream(rs);
-    try{const dc=peer.connect(tid,{reliable:true}); dc.on('open',()=>handleDataConn(dc));}catch(_){}
-  });
-  call.on('error',()=>{ if(!ok){setWaiting('idle'); toast('Gagal terhubung. Cek ID.');} });
-  setTimeout(()=>{ if(!ok){call.close(); setWaiting('idle'); toast('Waktu habis. ID tidak merespons.');} }, 10000);
-}
+        // ─── Screen Share ─────────────────────────────────────────────────────────────
+        async function toggleScr() {
+            isScrSharing ? stopScr(false) : await startScr();
+        }
 
-function toast(msg) {
-  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('up');
-  setTimeout(()=>t.classList.remove('up'), 2500);
-}
+        async function startScr() {
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: 'always' },
+                    audio: false
+                });
+                const scrTrack = screenStream.getVideoTracks()[0];
+                scrTrack.onended = () => stopScr(true);
 
-// Keep presence & keepalive
-setInterval(()=>{ if(myId && isSearching) saveLobby(); }, 5000);
-setInterval(()=>{ if(peer && peer.disconnected) peer.reconnect(); }, 15000);
-</script>
+                if (localStream) {
+                    const old = localStream.getVideoTracks()[0];
+                    if (old) {
+                        localStream.removeTrack(old);
+                        old.stop();
+                    }
+                    localStream.addTrack(scrTrack);
+                } else {
+                    localStream = new MediaStream([scrTrack]);
+                }
+
+                const lv = document.getElementById('localVid');
+                lv.srcObject = localStream;
+                lv.classList.remove('hidden');
+                document.getElementById('localPH').style.display = 'none';
+                document.getElementById('locScrBadge').classList.remove('hidden');
+
+                // Replace track in all active calls
+                Object.values(currentCalls).forEach(call => {
+                    if (call.peerConnection) {
+                        const senders = call.peerConnection.getSenders();
+                        const vs = senders.find(s => s.track && s.track.kind === 'video');
+                        if (vs) {
+                            vs.replaceTrack(scrTrack).catch(() => { });
+                        }
+                    }
+                });
+
+                isScrSharing = true;
+                document.getElementById('scrBtn').classList.add('bg-accent2/25', 'border-accent2');
+                document.getElementById('scrBtn').textContent = '🖥️ Stop Share';
+                toast('Screen share aktif');
+
+                // Notify all peers
+                Object.values(connectedPeers).forEach(p => {
+                    if (p.dataConn) {
+                        try { p.dataConn.send({ type: 'scrstart' }); } catch (e) { }
+                    }
+                });
+            } catch (e) {
+                if (e.name !== 'NotAllowedError') toast('Gagal share screen: ' + e.message);
+            }
+        }
+
+        async function stopScr(auto) {
+            isScrSharing = false;
+            document.getElementById('locScrBadge').classList.add('hidden');
+            document.getElementById('scrBtn').classList.remove('bg-accent2/25', 'border-accent2');
+            document.getElementById('scrBtn').textContent = '🖥️ Share Screen';
+
+            if (screenStream) {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+            }
+
+            // Notify all peers
+            Object.values(connectedPeers).forEach(p => {
+                if (p.dataConn) {
+                    try { p.dataConn.send({ type: 'scrstop' }); } catch (e) { }
+                }
+            });
+
+            // Restore cam if available
+            try {
+                const cs = await navigator.mediaDevices.getUserMedia({ video: true });
+                const camT = cs.getVideoTracks()[0];
+                if (localStream) {
+                    const old = localStream.getVideoTracks()[0];
+                    if (old) {
+                        localStream.removeTrack(old);
+                        old.stop();
+                    }
+                    localStream.addTrack(camT);
+                } else { localStream = new MediaStream([camT]); }
+                document.getElementById('localVid').srcObject = localStream;
+                Object.values(currentCalls).forEach(call => {
+                    if (call.peerConnection) {
+                        const vs = call.peerConnection.getSenders().find(s => s.track && s.track.kind ===
+                            'video');
+                        if (vs) vs.replaceTrack(camT).catch(() => { });
+                    }
+                });
+                isCamOn = true;
+                document.getElementById('camBtn').disabled = false;
+                document.getElementById('camBtn').classList.remove('opacity-40');
+                document.getElementById('camBtn').textContent = '📷';
+            } catch (_) {
+                localStream = null;
+                document.getElementById('localVid').classList.add('hidden');
+                document.getElementById('localPH').style.display = 'flex';
+                isCamOn = false;
+                document.getElementById('camBtn').disabled = true;
+                document.getElementById('camBtn').classList.add('opacity-40');
+                document.getElementById('camBtn').textContent = '🚫';
+            }
+            if (!auto) toast('Screen share dihentikan');
+        }
+
+        // ─── Data Channel ─────────────────────────────────────────────────────────────
+        function handleDataConn(conn, peerId) {
+            if (connectedPeers[peerId]) {
+                connectedPeers[peerId].dataConn = conn;
+            } else {
+                connectedPeers[peerId] = { stream: null, dataConn: conn };
+            }
+
+            conn.on('data', d => {
+                if (d.type === 'chat') {
+                    addMsg(d.text, 'them');
+                    if (!chatOpen) {
+                        unread++;
+                        showBadge();
+                    }
+                } else if (d.type === 'scrstop') {
+                    document.getElementById('scrbadge-' + peerId)?.classList.add('hidden');
+                } else if (d.type === 'scrstart') {
+                    document.getElementById('scrbadge-' + peerId)?.classList.remove('hidden');
+                }
+            });
+
+            conn.on('close', () => {
+                if (connectedPeers[peerId]) {
+                    connectedPeers[peerId].dataConn = null;
+                }
+            });
+        }
+
+        // ─── Toggles ──────────────────────────────────────────────────────────────────
+        function toggleMic() {
+            if (!localStream) return;
+            isMicOn = !isMicOn;
+            localStream.getAudioTracks().forEach(t => t.enabled = isMicOn);
+            const b = document.getElementById('micBtn');
+            b.textContent = isMicOn ? '🎙️' : '🔇';
+            b.classList.toggle('opacity-40', !isMicOn);
+        }
+
+        function toggleCam() {
+            if (!localStream) return;
+            const videoTracks = localStream.getVideoTracks();
+            if (videoTracks.length === 0) return;
+            isCamOn = !isCamOn;
+            videoTracks.forEach(t => t.enabled = isCamOn);
+            const b = document.getElementById('camBtn');
+            b.textContent = isCamOn ? '📷' : '🚫';
+            b.classList.toggle('opacity-40', !isCamOn);
+            if (!isCamOn) {
+                document.getElementById('localVid').classList.add('hidden');
+                document.getElementById('localPH').style.display = 'flex';
+                document.getElementById('localAva').textContent = '📷';
+                document.getElementById('localPhT').textContent = 'Kamera dimatikan';
+            } else {
+                document.getElementById('localVid').classList.remove('hidden');
+                document.getElementById('localPH').style.display = 'none';
+            }
+        }
+
+        // ─── UI Helpers ───────────────────────────────────────────────────────────────
+        function setSt(txt, on) {
+            document.getElementById('stxt').textContent = txt;
+            document.getElementById('sdot').className = 'w-1.5 h-1.5 rounded-full flex-shrink-0 ' + (on ?
+                'bg-green dot on' : 'bg-muted');
+        }
+
+        function setChatEnabled(on) {
+            document.getElementById('chatIn').disabled = !on;
+            document.getElementById('chatSend').disabled = !on;
+            document.getElementById('chatIn').placeholder = on ? 'Ketik pesan... (Enter)' :
+                'Terhubung dulu...';
+        }
+
+        function toggleChat() {
+            chatOpen = !chatOpen;
+            document.getElementById('chatWrap').classList.toggle('right-0', chatOpen);
+            document.getElementById('chatWrap').classList.toggle('right-[-360px]', !chatOpen);
+            if (chatOpen) {
+                unread = 0;
+                document.getElementById('chatBadge').classList.add('hidden');
+                setTimeout(() => document.getElementById('chatIn').focus(), 280);
+            }
+            setChatEnabled(true); // Always enabled in room
+        }
+
+        function addMsg(txt, who) {
+            const el = document.createElement('div');
+            el.className = 'max-w-[82%] px-3 py-1.5 rounded-xl text-sm leading-relaxed break-words msg ' + who;
+            if (who === 'me') {
+                el.classList.add('ml-auto', 'bg-accent', 'text-white');
+            } else {
+                el.classList.add('mr-auto', 'bg-s3', 'text-text');
+            }
+            el.textContent = txt;
+            const c = document.getElementById('chatMsgs');
+            c.appendChild(el);
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function addSys(txt) {
+            const el = document.createElement('div');
+            el.className =
+                'self-center text-xs text-muted text-center py-1 font-mono max-w-[82%] px-3 py-1.5 leading-relaxed break-words msg sys';
+            el.textContent = txt;
+            const c = document.getElementById('chatMsgs');
+            c.appendChild(el);
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function sendChat() {
+            const inp = document.getElementById('chatIn');
+            const txt = inp.value.trim();
+            if (!txt) return;
+            // Broadcast to all connected peers
+            Object.values(connectedPeers).forEach(p => {
+                if (p.dataConn) {
+                    try { p.dataConn.send({ type: 'chat', text: txt }); } catch (e) { }
+                }
+            });
+            addMsg(txt, 'me');
+            inp.value = '';
+        }
+
+        function showBadge() {
+            const b = document.getElementById('chatBadge');
+            b.textContent = unread > 99 ? '99+' : unread;
+            b.classList.remove('hidden');
+            b.classList.add('flex');
+        }
+
+        function toast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.transform = 'translateX(-50%) translateY(0)';
+            setTimeout(() => {
+                t.style.transform = 'translateX(-50%) translateY(60px)';
+            }, 2500);
+        }
+
+        // ─── Keepalive ────────────────────────────────────────────────────────────────
+        setInterval(() => {
+            if (peer && peer.disconnected) peer.reconnect();
+        }, 15000);
+
+        // ─── Check for room in URL on load ────────────────────────────────────────────
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const roomParam = params.get('room');
+            if (roomParam) {
+                document.getElementById('joinRoomInput').value = roomParam;
+                // Auto-join after a short delay
+                setTimeout(() => {
+                    joinRoom();
+                }, 500);
+            }
+        });
+    </script>
 </body>
+
 </html>
