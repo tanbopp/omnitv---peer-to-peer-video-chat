@@ -917,6 +917,8 @@
             document.getElementById('roomPill').style.display = 'inline-flex';
             document.getElementById('countPill').style.display = 'inline-flex';
             document.getElementById('shareBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = false;
             document.getElementById('localRoleChip').textContent = hostMode ? 'Host' : 'Peserta';
             document.getElementById('roomEmptyTitle').textContent = hostMode ? 'Room siap diisi' : 'Masuk ke room';
             document.getElementById('roomEmptyText').textContent = hostMode
@@ -1088,6 +1090,7 @@
                     max: MAX_PARTICIPANTS,
                     roster: serializeRoster(conn.peer)
                 });
+                maybeCallParticipant(conn.peer);
                 broadcastToMembers({ type: 'participant-joined', participant: serializeParticipant(conn.peer) }, conn.peer);
                 updateParticipantCount();
                 addSys(participant.name + ' masuk ke room.');
