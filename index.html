@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OmeTV Clone</title>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- PeerJS -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<style>
+body {
+  margin: 0;
+  background: #0a0f14;
+  color: #fff;
+  font-family: 'Space Mono', monospace;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+}
+
+.video-area {
+  width: 70%;
+  position: relative;
+  background: black;
+}
+
+video {
+  object-fit: cover;
+}
+
+#remoteVideo {
+  width: 100%;
+  height: 100%;
+}
+
+#localVideo {
+  position: absolute;
+  width: 200px;
+  height: 120px;
+  bottom: 20px;
+  right: 20px;
+  border-radius: 12px;
+  border: 2px solid #00e0ff;
+}
+
+.chat {
+  width: 30%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(20,30,40,0.7);
+  backdrop-filter: blur(10px);
+  font-family: 'Inter', sans-serif;
+}
+
+.messages {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.input {
+  display: flex;
+}
+
+input {
+  flex: 1;
+  padding: 10px;
+  background: #111;
+  border: none;
+  color: white;
+}
+
+button {
+  background: #00e0ff;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #00bcd4;
+}
+
+.controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+}
+
+.status {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: #00e0ff;
+}
+
+.pulse {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="video-area">
+    <div class="status" id="status">Initializing...</div>
+
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay muted playsinline></video>
+
+    <div class="controls">
+      <button onclick="next()">Next</button>
+      <button onclick="stop()">Stop</button>
+      <button onclick="toggleMute()">Mute</button>
+      <button onclick="toggleCam()">Cam</button>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="messages" id="messages"></div>
+    <div class="input">
+      <input id="msg" placeholder="Type message...">
+      <button onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let localStream;
+let peer;
+let call;
+let conn;
+
+let searching = false;
+let countdown = 10;
+let timer;
+
+// ===== INIT MEDIA =====
+async function initMedia() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById('localVideo').srcObject = localStream;
+  } catch (e) {
+    alert("Camera/Mic permission required!");
+  }
+}
+
+// ===== MATCHMAKING LOGIC =====
+// Sistem:
+// - Generate "room key" tiap 5 detik
+// - Satu user jadi HOST (ID = key)
+// - User lain coba CALL ID itu
+// - Kalau gagal → retry
+
+function generateKey() {
+  return "stranger-" + Math.floor(Date.now() / 5000);
+}
+
+function startSearch() {
+  setStatus("Searching...", true);
+  searching = true;
+  countdown = 10;
+
+  tryConnect();
+  startTimer();
+}
+
+function tryConnect() {
+  let key = generateKey();
+
+  peer = new Peer(key, {
+    host: '0.peerjs.com',
+    port: 443,
+    secure: true
+  });
+
+  let isHost = false;
+
+  peer.on('open', id => {
+    if (id === key) {
+      isHost = true;
+    } else {
+      callPeer(key);
+    }
+  });
+
+  peer.on('call', incoming => {
+    call = incoming;
+    call.answer(localStream);
+
+    call.on('stream', stream => {
+      connectSuccess(stream);
+    });
+  });
+
+  peer.on('connection', c => {
+    conn = c;
+    setupChat();
+  });
+
+  peer.on('error', () => {
+    retry();
+  });
+}
+
+function callPeer(id) {
+  call = peer.call(id, localStream);
+  conn = peer.connect(id);
+
+  call.on('stream', stream => {
+    connectSuccess(stream);
+  });
+
+  call.on('error', retry);
+}
+
+function connectSuccess(stream) {
+  setStatus("Connected");
+  document.getElementById('remoteVideo').srcObject = stream;
+  searching = false;
+  clearInterval(timer);
+}
+
+function retry() {
+  if (!searching) return;
+  destroyPeer();
+  setTimeout(tryConnect, 1000);
+}
+
+function startTimer() {
+  timer = setInterval(() => {
+    countdown--;
+    setStatus("Searching... " + countdown, true);
+
+    if (countdown <= 0) {
+      retry();
+      countdown = 10;
+    }
+  }, 1000);
+}
+
+// ===== CONTROLS =====
+function next() {
+  destroyPeer();
+  startSearch();
+}
+
+function stop() {
+  destroyPeer();
+  setStatus("Stopped");
+}
+
+function destroyPeer() {
+  if (call) call.close();
+  if (conn) conn.close();
+  if (peer) peer.destroy();
+
+  document.getElementById('remoteVideo').srcObject = null;
+}
+
+// ===== CHAT =====
+function setupChat() {
+  conn.on('data', data => {
+    addMsg("Stranger: " + data);
+  });
+}
+
+function sendMsg() {
+  let input = document.getElementById('msg');
+  if (conn && input.value) {
+    conn.send(input.value);
+    addMsg("You: " + input.value);
+    input.value = "";
+  }
+}
+
+function addMsg(msg) {
+  let div = document.createElement('div');
+  div.textContent = msg;
+  document.getElementById('messages').appendChild(div);
+}
+
+// ===== TOGGLES =====
+function toggleMute() {
+  localStream.getAudioTracks()[0].enabled =
+    !localStream.getAudioTracks()[0].enabled;
+}
+
+function toggleCam() {
+  localStream.getVideoTracks()[0].enabled =
+    !localStream.getVideoTracks()[0].enabled;
+}
+
+// ===== UI =====
+function setStatus(text, pulse=false) {
+  let el = document.getElementById('status');
+  el.textContent = text;
+  el.classList.toggle('pulse', pulse);
+}
+
+// ===== START =====
+if (!navigator.mediaDevices || !window.RTCPeerConnection) {
+  alert("WebRTC not supported in your browser!");
+} else {
+  initMedia().then(startSearch);
+}
+</script>
+
+</body>
+</html>
